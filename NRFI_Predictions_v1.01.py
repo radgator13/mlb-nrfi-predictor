@@ -164,12 +164,19 @@ with col2:
     st.markdown("#### 🔴 Top 5 YRFI Risks")
     st.dataframe(top_yrfi.reset_index(drop=True), use_container_width=True)
 
-# --- Smart Picks Section ---
-st.subheader("📌 Smart Picks of the Day (NRFI % > 70%)")
+# --- Smart Picks: NRFI + YRFI ---
+st.subheader("📌 Smart Picks of the Day")
 
-smart_picks = df[df["NRFI Probability (%)"] >= 70].sort_values(by="NRFI Probability (%)", ascending=False)
+smart_nrfi = df[df["NRFI Probability (%)"] >= 70].sort_values(by="NRFI Probability (%)", ascending=False)
+smart_yrfi = df[df["NRFI Probability (%)"] <= 30].sort_values(by="NRFI Probability (%)", ascending=True)
 
-if smart_picks.empty:
-    st.info("No Smart Picks available today. Check back on another slate.")
+if smart_nrfi.empty and smart_yrfi.empty:
+    st.info("No Smart Picks available today. Try again next slate.")
 else:
-    st.dataframe(smart_picks[["Matchup", "NRFI Probability (%)", "Prediction"]].reset_index(drop=True), use_container_width=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("#### 🟢 NRFI Smart Picks (70%+)")
+        st.dataframe(smart_nrfi[["Matchup", "NRFI Probability (%)", "Prediction"]].reset_index(drop=True), use_container_width=True)
+    with col2:
+        st.markdown("#### 🔴 YRFI Smart Picks (≤30%)")
+        st.dataframe(smart_yrfi[["Matchup", "NRFI Probability (%)", "Prediction"]].reset_index(drop=True), use_container_width=True)
