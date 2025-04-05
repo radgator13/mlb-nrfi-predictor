@@ -88,7 +88,7 @@ def calculate_nrfi_probability(p1_score, p2_score, h1_score, h2_score):
     return round(prob, 2)
 
 # --- Streamlit App ---
-st.title("⚾ NRFI Predictor – All Games (Optimized)")
+st.title("⚾ NRFI Predictor – All Games (Optimized + Summary)")
 
 selected_date = st.date_input("Select Game Date", date.today())
 games_df = fetch_schedule(selected_date)
@@ -117,7 +117,6 @@ with st.spinner("Analyzing matchups..."):
             progress.progress((i + 1) / len(games_df))
             continue
 
-        # Stats
         home_p_stats = fetch_stats(pitchers['home'], 'pitching')
         away_p_stats = fetch_stats(pitchers['away'], 'pitching')
         home_p_score = pitcher_score(home_p_stats)
@@ -143,6 +142,22 @@ with st.spinner("Analyzing matchups..."):
 
         progress.progress((i + 1) / len(games_df))
 
-# Show Results
+# Display Main Table
 df = pd.DataFrame(results)
 st.dataframe(df.sort_values(by="NRFI Probability (%)", ascending=False).reset_index(drop=True))
+
+# --- Summary Section: Top 5 NRFI + YRFI ---
+st.subheader("🔍 Summary")
+
+top_nrfi = df[df["Prediction"] == "NRFI ✅"].sort_values(by="NRFI Probability (%)", ascending=False).head(5)
+top_yrfi = df[df["Prediction"] == "YRFI ⚠️"].sort_values(by="NRFI Probability (%)", ascending=True).head(5)
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("#### 🟢 Top 5 NRFI Picks")
+    st.dataframe(top_nrfi.reset_index(drop=True))
+
+with col2:
+    st.markdown("#### 🔴 Top 5 YRFI Risks")
+    st.dataframe(top_yrfi.reset_index(drop=True))
