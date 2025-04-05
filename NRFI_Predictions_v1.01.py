@@ -4,7 +4,7 @@ import requests
 from datetime import date
 import math
 
-st.set_page_config(layout="wide")  # ✅ Make the app layout wide
+st.set_page_config(layout="wide")  # Full-width layout
 
 # --- CACHED API FETCH ---
 @st.cache_data(ttl=3600)
@@ -90,7 +90,7 @@ def calculate_nrfi_probability(p1_score, p2_score, h1_score, h2_score):
     return round(prob, 2)
 
 # --- Streamlit App ---
-st.title("⚾ NRFI Predictor – All Games (WIDE Layout + Summary)")
+st.title("⚾ NRFI Predictor – All Games (Smart Picks Included)")
 
 selected_date = st.date_input("Select Game Date", date.today())
 games_df = fetch_schedule(selected_date)
@@ -163,3 +163,13 @@ with col1:
 with col2:
     st.markdown("#### 🔴 Top 5 YRFI Risks")
     st.dataframe(top_yrfi.reset_index(drop=True), use_container_width=True)
+
+# --- Smart Picks Section ---
+st.subheader("📌 Smart Picks of the Day (NRFI % > 70%)")
+
+smart_picks = df[df["NRFI Probability (%)"] >= 70].sort_values(by="NRFI Probability (%)", ascending=False)
+
+if smart_picks.empty:
+    st.info("No Smart Picks available today. Check back on another slate.")
+else:
+    st.dataframe(smart_picks[["Matchup", "NRFI Probability (%)", "Prediction"]].reset_index(drop=True), use_container_width=True)
