@@ -4,6 +4,8 @@ import requests
 from datetime import date
 import math
 
+st.set_page_config(layout="wide")  # ✅ Make the app layout wide
+
 # --- CACHED API FETCH ---
 @st.cache_data(ttl=3600)
 def fetch_json(url):
@@ -88,7 +90,7 @@ def calculate_nrfi_probability(p1_score, p2_score, h1_score, h2_score):
     return round(prob, 2)
 
 # --- Streamlit App ---
-st.title("⚾ NRFI Predictor – All Games (Optimized + Summary)")
+st.title("⚾ NRFI Predictor – All Games (WIDE Layout + Summary)")
 
 selected_date = st.date_input("Select Game Date", date.today())
 games_df = fetch_schedule(selected_date)
@@ -144,7 +146,7 @@ with st.spinner("Analyzing matchups..."):
 
 # Display Main Table
 df = pd.DataFrame(results)
-st.dataframe(df.sort_values(by="NRFI Probability (%)", ascending=False).reset_index(drop=True))
+st.dataframe(df.sort_values(by="NRFI Probability (%)", ascending=False).reset_index(drop=True), use_container_width=True)
 
 # --- Summary Section: Top 5 NRFI + YRFI ---
 st.subheader("🔍 Summary")
@@ -156,8 +158,8 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("#### 🟢 Top 5 NRFI Picks")
-    st.dataframe(top_nrfi.reset_index(drop=True))
+    st.dataframe(top_nrfi.reset_index(drop=True), use_container_width=True)
 
 with col2:
     st.markdown("#### 🔴 Top 5 YRFI Risks")
-    st.dataframe(top_yrfi.reset_index(drop=True))
+    st.dataframe(top_yrfi.reset_index(drop=True), use_container_width=True)
