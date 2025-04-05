@@ -4,7 +4,8 @@ import requests
 from datetime import date
 import math
 
-# --- Helper Functions ---
+# --- CACHED API FETCH ---
+@st.cache_data(ttl=3600)
 def fetch_json(url):
     try:
         res = requests.get(url)
@@ -13,6 +14,7 @@ def fetch_json(url):
     except:
         return {}
 
+@st.cache_data(ttl=3600)
 def fetch_schedule(selected_date):
     d = selected_date.strftime("%Y-%m-%d")
     url = f"https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={d}"
@@ -39,6 +41,7 @@ def get_probable_pitchers(game_id):
         'away_name': pp.get('away', {}).get('fullName', 'N/A'),
     }
 
+@st.cache_data(ttl=3600)
 def fetch_stats(player_id, group):
     url = f"https://statsapi.mlb.com/api/v1/people/{player_id}/stats?stats=career&group={group}"
     data = fetch_json(url)
@@ -56,6 +59,7 @@ def pitcher_score(stat):
     except:
         return 50
 
+@st.cache_data(ttl=3600)
 def fetch_roster(team_id):
     url = f"https://statsapi.mlb.com/api/v1/teams/{team_id}/roster"
     data = fetch_json(url)
@@ -75,21 +79,16 @@ def hitter_score(player_ids):
             continue
     return sum(scores) / len(scores) if scores else 50
 
-# --- Final Calibrated Logistic NRFI Model ---
+# --- NRFI Model ---
 def calculate_nrfi_probability(p1_score, p2_score, h1_score, h2_score):
     avg_pitch = (p1_score + p2_score) / 2
     avg_hit = (h1_score + h2_score) / 2
-
-    # Final calibrated input
-    model_input = avg_pitch * 1.0 - avg_hit * 0.3  # Lower weight to hitters
-
-    # Logistic curve centered around 25 (tuned to give better mid-range)
+    model_input = avg_pitch * 1.0 - avg_hit * 0.3
     prob = 100 / (1 + math.exp(-0.1 * (model_input - 25)))
-
     return round(prob, 2)
 
 # --- Streamlit App ---
-st.title("⚾ NRFI Predictor – All Games (Final Calibrated)")
+st.title("⚾ NRFI Predictor – All Games (Optimized)")
 
 selected_date = st.date_input("Select Game Date", date.today())
 games_df = fetch_schedule(selected_date)
@@ -99,28 +98,37 @@ if games_df.empty:
     st.stop()
 
 results = []
+team_rosters = {}
+
+def get_cached_roster(team_id):
+    if team_id not in team_rosters:
+        team_rosters[team_id] = fetch_roster(team_id)
+    return team_rosters[team_id]
+
+progress = st.progress(0)
 
 with st.spinner("Analyzing matchups..."):
-    for _, game in games_df.iterrows():
+    for i, (_, game) in enumerate(games_df.iterrows()):
         game_id = game['game_id']
         matchup = f"{game['away']} @ {game['home']}"
         pitchers = get_probable_pitchers(game_id)
 
         if not pitchers['home'] or not pitchers['away']:
+            progress.progress((i + 1) / len(games_df))
             continue
 
-        # Fetch Stats
+        # Stats
         home_p_stats = fetch_stats(pitchers['home'], 'pitching')
         away_p_stats = fetch_stats(pitchers['away'], 'pitching')
-
         home_p_score = pitcher_score(home_p_stats)
         away_p_score = pitcher_score(away_p_stats)
 
-        home_h_score = hitter_score(fetch_roster(game['home_id']))
-        away_h_score = hitter_score(fetch_roster(game['away_id']))
+        home_roster = get_cached_roster(game['home_id'])
+        away_roster = get_cached_roster(game['away_id'])
+        home_h_score = hitter_score(home_roster)
+        away_h_score = hitter_score(away_roster)
 
         nrfi_prob = calculate_nrfi_probability(home_p_score, away_p_score, home_h_score, away_h_score)
-
         prediction = "NRFI ✅" if nrfi_prob > 60 else "YRFI ⚠️" if nrfi_prob < 40 else "Toss-up 🤝"
 
         results.append({
@@ -132,6 +140,8 @@ with st.spinner("Analyzing matchups..."):
             "NRFI Probability (%)": nrfi_prob,
             "Prediction": prediction
         })
+
+        progress.progress((i + 1) / len(games_df))
 
 # Show Results
 df = pd.DataFrame(results)
